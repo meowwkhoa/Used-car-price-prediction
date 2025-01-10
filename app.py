@@ -6,9 +6,9 @@ import numpy as np
 import joblib
 
 # Load saved models and encoders
-model = joblib.load('/home/khoa/vucar/Used-car-price-prediction/model/random_forest_model.pkl')
-imputer = joblib.load('/home/khoa/vucar/Used-car-price-prediction/model/knn_imputer.pkl')
-label_encoders = joblib.load('/home/khoa/vucar/Used-car-price-prediction/model/encoders.pkl')
+model = joblib.load('./model/random_forest_model.pkl')
+imputer = joblib.load('./model/knn_imputer.pkl')
+label_encoders = joblib.load('./model/encoders.pkl')
 
 # Initialize FastAPI
 app = FastAPI()
