@@ -1,6 +1,6 @@
 # Used Car Price Prediction
 
-This repository contains a FastAPI application for predicting the prices of used cars.
+This repository contains a FastAPI application for predicting the prices of used cars. The answer for questions in section 1, 2 and 4 can be found in the python notebook.
 
 ## How to Run
 
