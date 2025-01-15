@@ -13,7 +13,6 @@ label_encoders = joblib.load('./model/encoders.pkl')
 # Initialize FastAPI
 app = FastAPI()
 
-
 # Define the request body structure
 class CarData(BaseModel):
     id: Optional[int] = None
@@ -29,8 +28,8 @@ class CarData(BaseModel):
     fuel: Optional[str] = None
     color: Optional[str] = None
     mileage_v2: Optional[float] = None
-    condition: str
-
+    price: Optional[float] = None
+    condition: Optional[str] = None
 
 @app.post("/predict/")
 def predict_price(car_data: CarData):
@@ -44,39 +43,45 @@ def predict_price(car_data: CarData):
         for col in categorical_columns:
             encoder = label_encoders.get(col)
             if encoder:
-                try:
-                    df[col] = encoder.transform(df[col])
-                except ValueError:
-                    raise HTTPException(status_code=400, detail=f"Invalid value for column '{col}': {df[col].iloc[0]}")
+                df[col] = df[col].fillna('missing')  # Placeholder for missing values
+                df[col] = encoder.transform(df[col])
+                # Revert placeholder back to NaN
+                missing_encoded = encoder.transform(['missing'])[0]
+                df[col] = df[col].replace(missing_encoded, np.nan)
+            else:
+                raise HTTPException(status_code=400, detail=f"No encoder found for column '{col}'")
 
-        
-        df.drop(columns=["id", "list_id", "list_time", "condition"], inplace=True)
+        # Drop unnecessary columns
+        df.drop(columns=["id", "list_id", "list_time", "price", "condition"], inplace=True)
 
-
-        # Impute missing values
+        # Handle missing values with KNN imputer
         missing_values_mask = df.isnull()
-        df_imputed = df.copy()
-        df_imputed = imputer.transform(df_imputed)
+        df_imputed = imputer.transform(df)
         df_numpy = np.where(missing_values_mask, df_imputed, df)
         df_numpy = df_numpy.astype(float)
         df = pd.DataFrame(df_numpy, columns=df.columns)
 
-        # Log transformation for mileage
+        # Log transformations
         df['mileage_v2'] = np.log(df['mileage_v2'] + 0.0001)
 
-        # Add car age and drop manufacture_date
+        # Add 'car_age' feature
         df['car_age'] = 2025 - df['manufacture_date']
         df.drop(columns=['manufacture_date'], inplace=True)
         df['car_age'] = np.log(df['car_age'] + 0.0001)
+
+        # Align with the model's expected features
+        expected_features = model.feature_names_in_
+        df = df[expected_features]
 
         # Predict price
         predicted_price = model.predict(df)
         predicted_price = predicted_price * 1e6  # Reverse scaling
 
         return {"predicted_price": predicted_price[0]}
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"Missing or unexpected feature: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
 
 @app.get("/")
 def read_root():
